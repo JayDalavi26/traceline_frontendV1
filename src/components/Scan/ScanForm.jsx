@@ -1,109 +1,172 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { partsAPI, scansAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../hooks/useToast';
-import { partsData } from '../../data/mockData';
+import CameraScanner from './CameraScanner';
 
-const ScanForm = ({ scannedResult, onScanComplete }) => {
+const ScanForm = ({ onScanComplete }) => {
   const { currentUser } = useAuth();
   const { showToast } = useToast();
   const [partId, setPartId] = useState('');
-  const [stage, setStage] = useState('Intake');
-  const [operatorId, setOperatorId] = useState(currentUser?.opId || 'OP-0042');
-  const [showResult, setShowResult] = useState(false);
-  const [resultData, setResultData] = useState(null);
+  const [stage, setStage] = useState('');
+  const [partDetails, setPartDetails] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef(null);
+  const stages = ['Intake', 'Cutting', 'Drilling', 'Heat Treatment', 'Inspection', 'Assembly'];
 
+  // Auto-fetch part details when Part ID changes
   useEffect(() => {
-    if (scannedResult) {
-      setPartId(scannedResult);
-      const found = partsData.find(p => p.id === scannedResult);
-      if (found) {
-        setResultData(found);
-        setShowResult(true);
-      } else {
-        setResultData(null);
-        setShowResult(true);
-      }
-    }
-  }, [scannedResult]);
-
-  const handleSimulate = () => {
-    const newId = `TL-2024-${Math.floor(8825 + Math.random() * 100)}`;
-    setPartId(newId);
-    setResultData(null);
-    setShowResult(true);
-    showToast(`DMC code simulated: ${newId}`, '⬡');
-  };
-
-  const handleProcessScan = () => {
-    if (!partId) {
-      showToast('Please enter a Part ID', '⚠️');
+    if (!partId || partId.length < 5) {
+      setPartDetails(null);
       return;
     }
-
-    const now = new Date();
-    const time = now.toTimeString().slice(0, 8);
-    const opName = currentUser?.name || 'R. Sharma';
-    const opIdFinal = currentUser?.opId || operatorId;
-
-    const newLog = {
-      time,
-      partId,
-      stage,
-      operator: opIdFinal,
-      name: opName,
-      block: `#${10492 + Math.floor(Math.random() * 100)}`,
-      hash: `0x${Math.random().toString(16).slice(2, 10)}...`,
-      status: 'success'
+    const fetchPart = async () => {
+      setLoading(true);
+      try {
+        const res = await partsAPI.getById(partId);
+        setPartDetails(res.data);
+        const currentIndex = stages.indexOf(res.data.stage);
+        if (currentIndex !== -1 && currentIndex + 1 < stages.length) {
+          setStage(stages[currentIndex + 1]);
+        } else {
+          setStage('');
+        }
+      } catch (err) {
+        setPartDetails(null);
+        showToast('Part not found or not assigned to you', '❌');
+      } finally {
+        setLoading(false);
+      }
     };
+    const timer = setTimeout(fetchPart, 500);
+    return () => clearTimeout(timer);
+  }, [partId]);
 
-    onScanComplete(newLog);
-    showToast(`${partId} logged to blockchain — Stage: ${stage}`, '✅');
-    setPartId('');
-    setShowResult(false);
-    setResultData(null);
+  const handleScanComplete = (decodedId) => {
+    setPartId(decodedId);
+    showToast(`DMC detected: ${decodedId}`, '⬡');
+  };
+
+  const handleProcessScan = async () => {
+    if (!partId || !stage) {
+      showToast('Please enter Part ID and select a stage', '⚠️');
+      return;
+    }
+    const operatorId = currentUser?.opId || 'OP-0000';
+    const operatorName = currentUser?.name || 'Unknown';
+    try {
+      const response = await scansAPI.record({ partId, stage, operatorId, operatorName });
+      showToast(`${partId} logged — Block #${response.data.blockNumber}`, '✅');
+      setPartId('');
+      setStage('');
+      setPartDetails(null);
+      if (onScanComplete) onScanComplete(response.data);
+    } catch (err) {
+      showToast('Scan failed. You may not be authorized.', '❌');
+    }
+  };
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        // Create canvas and draw image
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        
+        // Ensure jsQR is loaded
+        if (!window.jsQR) {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
+          script.onload = () => decodeWithJSQR(imageData, canvas.width, canvas.height);
+          document.head.appendChild(script);
+        } else {
+          decodeWithJSQR(imageData, canvas.width, canvas.height);
+        }
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const decodeWithJSQR = (imageData, width, height) => {
+    const code = window.jsQR(imageData.data, width, height);
+    if (code && code.data) {
+      showToast(`✓ DMC decoded from image: ${code.data}`, '✅');
+      setPartId(code.data);
+    } else {
+      showToast('No DMC code found in the uploaded image', '❌');
+    }
+    // Reset file input so same file can be uploaded again
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const triggerFileUpload = () => {
+    fileInputRef.current.click();
   };
 
   return (
-    <>
-      <div style={{ position: 'relative', margin: '8px 0 16px' }}>
+    <div className="card">
+      <div className="card-title" style={{ marginBottom: '16px' }}>📷 DMC Scanner</div>
+      <CameraScanner onScanComplete={handleScanComplete} />
+      
+      <div style={{ position: 'relative', margin: '16px 0' }}>
         <div style={{ height: '1px', background: 'var(--border)' }}></div>
-        <span style={{ position: 'absolute', top: '-8px', left: '50%', transform: 'translateX(-50%)', background: 'var(--surface)', padding: '0 10px', fontSize: '11px', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>or enter manually</span>
+        <span style={{ position: 'absolute', top: '-8px', left: '50%', transform: 'translateX(-50%)', background: 'var(--surface)', padding: '0 10px', fontSize: '11px', color: 'var(--text3)' }}>or</span>
       </div>
-
+      
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
+        <button className="btn btn-ghost" onClick={triggerFileUpload} style={{ flex: 1 }}>
+          📂 Upload DMC Image
+        </button>
+        <input type="file" ref={fileInputRef} accept="image/*" style={{ display: 'none' }} onChange={handleFileUpload} />
+      </div>
+      
+      <div style={{ position: 'relative', margin: '16px 0' }}>
+        <div style={{ height: '1px', background: 'var(--border)' }}></div>
+        <span style={{ position: 'absolute', top: '-8px', left: '50%', transform: 'translateX(-50%)', background: 'var(--surface)', padding: '0 10px', fontSize: '11px', color: 'var(--text3)' }}>or enter manually</span>
+      </div>
+      
       <div className="form-group">
         <label className="form-label">Part ID (DMC Code)</label>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <input type="text" className="form-input" placeholder="e.g. TL-2024-8825" value={partId} onChange={(e) => setPartId(e.target.value)} style={{ flex: 1 }} />
-          <button className="btn btn-ghost" onClick={handleSimulate} style={{ whiteSpace: 'nowrap' }}>⬡ Auto-fill</button>
-        </div>
+        <input type="text" className="form-input" placeholder="e.g. TL-2024-9001" value={partId} onChange={(e) => setPartId(e.target.value)} />
       </div>
-
+      
+      {loading && <div style={{ textAlign: 'center', margin: '10px 0' }}>Loading part details...</div>}
+      {partDetails && !loading && (
+        <div className="scanned-result show" style={{ marginBottom: '16px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--accent)', marginBottom: '10px' }}>✓ Part Found</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '12px' }}>
+            <div><span style={{ color: 'var(--text3)' }}>Batch</span><br /><span>{partDetails.batch}</span></div>
+            <div><span style={{ color: 'var(--text3)' }}>Material</span><br /><span>{partDetails.material}</span></div>
+            <div><span style={{ color: 'var(--text3)' }}>Current Stage</span><br /><span>{partDetails.stage}</span></div>
+            <div><span style={{ color: 'var(--text3)' }}>Assigned Operator</span><br /><span>{partDetails.operatorName}</span></div>
+          </div>
+        </div>
+      )}
+      
       <div className="form-group">
-        <label className="form-label">Process Stage</label>
+        <label className="form-label">Next Process Stage</label>
         <select className="form-input" value={stage} onChange={(e) => setStage(e.target.value)}>
-          <option>Intake</option><option>Cutting</option><option>Drilling</option><option>Heat Treatment</option><option>Surface Finish</option><option>Inspection</option><option>Assembly</option>
+          <option value="">Select stage</option>
+          {stages.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
       </div>
-
-      <div className="form-group" id="operatorIdField">
+      
+      <div className="form-group">
         <label className="form-label">Operator ID</label>
-        <input type="text" className="form-input" placeholder="Scan operator badge..." value={operatorId} onChange={(e) => setOperatorId(e.target.value)} readOnly={!!currentUser?.opId} style={{ opacity: currentUser?.opId ? '0.6' : '1' }} />
+        <input type="text" className="form-input" value={currentUser?.opId || ''} readOnly disabled style={{ opacity: 0.7 }} />
       </div>
-
+      
       <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleProcessScan}>⊕ Process Scan &amp; Log to Blockchain</button>
-
-      <div className={`scanned-result ${showResult ? 'show' : ''}`} id="scannedResult">
-        <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--accent)', marginBottom: '10px' }}>✓ DMC Decoded — Part Details</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '12px' }}>
-          <div><span style={{ color: 'var(--text3)' }}>Part ID</span><br /><span className="mono">{resultData?.id || partId || '—'}</span></div>
-          <div><span style={{ color: 'var(--text3)' }}>Batch</span><br /><span style={{ color: 'var(--text)' }}>{resultData?.batch || 'B-2024-12'}</span></div>
-          <div><span style={{ color: 'var(--text3)' }}>Material</span><br /><span style={{ color: 'var(--text)' }}>{resultData?.material || 'Steel AISI 1018'}</span></div>
-          <div><span style={{ color: 'var(--text3)' }}>Current Stage</span><br /><span style={{ color: 'var(--text)' }}>{resultData?.stage || stage}</span></div>
-          <div><span style={{ color: 'var(--text3)' }}>Operator</span><br /><span style={{ color: 'var(--text)' }}>{resultData?.operator || currentUser?.name || 'Unknown'}</span></div>
-          <div><span style={{ color: 'var(--text3)' }}>Risk Score</span><br /><span style={{ fontWeight: 700, color: resultData?.risk > 70 ? 'var(--danger)' : resultData?.risk > 40 ? 'var(--warn)' : 'var(--text2)' }}>{resultData?.risk || '—'}%</span></div>
-        </div>
-      </div>
-    </>
+    </div>
   );
 };
 

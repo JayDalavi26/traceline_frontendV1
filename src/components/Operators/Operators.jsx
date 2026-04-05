@@ -1,60 +1,97 @@
-import React from 'react';
-import { operators } from '../../data/mockData';
+import React, { useState, useEffect } from 'react';
+import { operatorsAPI } from '../../services/api';
 import { useToast } from '../../hooks/useToast';
+import AddOperatorModal from './AddOperatorModal';
+import DeleteModal from './DeleteModal';
 
 const Operators = () => {
+  const [operators, setOperators] = useState([]);
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [deleteModal, setDeleteModal] = useState({ open: false, operator: null });
   const { showToast } = useToast();
 
+  const fetchOperators = async () => {
+    try {
+      const res = await operatorsAPI.getAll();
+      setOperators(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchOperators();
+  }, []);
+
+  const handleDelete = async (id, email) => {
+    try {
+      await operatorsAPI.delete(id, email);
+      showToast('Operator deleted and notified', '🗑️');
+      fetchOperators();
+    } catch (err) {
+      showToast('Delete failed', '❌');
+    }
+    setDeleteModal({ open: false, operator: null });
+  };
+
+  const getStatusBadge = (status) => {
+    switch(status) {
+      case 'active': return <span className="badge badge-success">Active</span>;
+      case 'suspended': return <span className="badge badge-danger">Suspended</span>;
+      case 'flagged': return <span className="badge badge-warn">⚠ Flagged</span>;
+      default: return <span className="badge badge-neutral">{status}</span>;
+    }
+  };
+
   return (
-    <div className="grid-2">
+    <div>
       <div className="card">
         <div className="card-header">
           <div className="card-title">Operator Directory</div>
-          <button className="btn btn-primary" style={{ padding: '7px 14px' }} onClick={() => showToast('New operator registration form opened', '👤')}>⊕ Add Operator</button>
+          <button className="btn btn-primary" onClick={() => setAddModalOpen(true)}>⊕ Add Operator</button>
         </div>
-
-        {operators.map(op => (
-          <div key={op.opId} className="operator-card">
-            <div className="avatar" style={{ background: op.status === 'flagged' ? 'rgba(239,68,68,0.12)' : op.status === 'off' ? 'rgba(255,255,255,0.06)' : 'rgba(0,212,170,0.12)', color: op.status === 'flagged' ? 'var(--danger)' : op.status === 'off' ? 'var(--text2)' : 'var(--accent)' }}>{op.initials}</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>{op.name}</div>
-              <div style={{ fontSize: '12px', color: 'var(--text3)' }}>{op.opId} • {op.level}</div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <span className={`badge ${op.status === 'on' ? 'badge-success' : op.status === 'flagged' ? 'badge-danger' : 'badge-neutral'}`}>{op.status === 'on' ? 'On Shift' : op.status === 'flagged' ? '⚠ Flagged' : 'Off Shift'}</span>
-              <div style={{ fontSize: '11px', color: 'var(--text3)', marginTop: '4px' }}>{op.scans} scans today</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div>
-        <div className="card section-gap">
-          <div className="card-title" style={{ marginBottom: '16px' }}>Operator Performance</div>
+        <div className="table-wrap">
           <table>
-            <thead><tr><th>Operator</th><th>Scans</th><th>Accuracy</th><th>Anomalies</th></tr></thead>
+            <thead>
+              <tr>
+                <th>ID</th><th>Name</th><th>Level</th><th>Status</th><th>Scans Today</th><th>Accuracy</th><th>Anomalies</th><th>Actions</th>
+              </tr>
+            </thead>
             <tbody>
               {operators.map(op => (
-                <tr key={op.opId}>
-                  <td>{op.name.split(' ').slice(0, 2).join(' ')}</td>
-                  <td>{op.scans}</td>
-                  <td><span style={{ color: op.accuracy >= 95 ? 'var(--success)' : op.accuracy >= 85 ? 'var(--warn)' : 'var(--danger)' }}>{op.accuracy}%</span></td>
-                  <td><span style={{ color: op.anomalies === 0 ? 'var(--success)' : op.anomalies <= 1 ? 'var(--warn)' : 'var(--danger)' }}>{op.anomalies}</span></td>
+                <tr key={op.id}>
+                  <td><span className="mono">{op.opId}</span></td>
+                  <td>{op.name}</td>
+                  <td>{op.level}</td>
+                  <td>{getStatusBadge(op.status)}</td>
+                  <td>{op.totalScansToday}</td>
+                  <td>{op.accuracy}%</td>
+                  <td>{op.anomalyCount}</td>
+                  <td>
+                    <button className="btn btn-danger" style={{ padding: '4px 10px' }}
+                      onClick={() => setDeleteModal({ open: true, operator: op })}>
+                      🗑 Delete
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-
-        <div className="card">
-          <div className="card-title" style={{ marginBottom: '16px' }}>MFA Authentication Log</div>
-          <div className="timeline">
-            <div className="timeline-item"><div className="timeline-dot" style={{ background: 'var(--success)' }}></div><div className="timeline-time">14:00:00 — OP-0042 R. Sharma</div><div className="timeline-text">Shift login — MFA verified</div><div className="timeline-sub">Device: Scanner Terminal 1 • IP: 192.168.1.42</div></div>
-            <div className="timeline-item"><div className="timeline-dot" style={{ background: 'var(--success)' }}></div><div className="timeline-time">14:00:12 — OP-0031 S. Desai</div><div className="timeline-text">Shift login — MFA verified</div><div className="timeline-sub">Device: Supervisor Terminal • IP: 192.168.1.10</div></div>
-            <div className="timeline-item"><div className="timeline-dot" style={{ background: 'var(--danger)' }}></div><div className="timeline-time">14:28:44 — OP-0007 V. Patil</div><div className="timeline-text">⚠ Duplicate scan attempt flagged</div><div className="timeline-sub">Supervisor notified • Blockchain log: Block #10490</div></div>
-          </div>
-        </div>
       </div>
+
+      <AddOperatorModal 
+        isOpen={addModalOpen} 
+        onClose={() => setAddModalOpen(false)} 
+        onOperatorAdded={fetchOperators} 
+      />
+
+      <DeleteModal
+        isOpen={deleteModal.open}
+        operator={deleteModal.operator}
+        onClose={() => setDeleteModal({ open: false, operator: null })}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 };

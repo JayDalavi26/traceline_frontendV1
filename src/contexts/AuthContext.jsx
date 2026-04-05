@@ -1,14 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
+import { authAPI } from '../services/api';
 
 const AuthContext = createContext();
-
-const USERS = {
-  'admin': { password: 'admin123', role: 'admin', name: 'Admin User', opId: null, operatorKey: null },
-  'op.sharma': { password: 'op123', role: 'operator', name: 'R. Sharma', opId: 'OP-0042', operatorKey: 'R. Sharma' },
-  'op.kumar': { password: 'op123', role: 'operator', name: 'A. Kumar', opId: 'OP-0018', operatorKey: 'A. Kumar' },
-  'op.desai': { password: 'op123', role: 'operator', name: 'S. Desai', opId: 'OP-0031', operatorKey: 'S. Desai' },
-  'op.patil': { password: 'op123', role: 'operator', name: 'V. Patil', opId: 'OP-0007', operatorKey: 'V. Patil' },
-};
 
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
@@ -17,6 +10,7 @@ export const AuthProvider = ({ children }) => {
   const [selectedRole, setSelectedRole] = useState('admin');
 
   useEffect(() => {
+    // On page load, check if we have a user in localStorage (but token is in cookie)
     const savedUser = localStorage.getItem('traceline_user');
     if (savedUser) {
       const user = JSON.parse(savedUser);
@@ -27,26 +21,35 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const login = (username, password, role) => {
-    const user = USERS[username];
-    if (user && user.password === password && user.role === role) {
-      const userData = { username, ...user };
+  const login = async (username, password, role) => {
+    try {
+      const response = await authAPI.login(username, password, role);
+      const { role: userRole, name, opId } = response.data;
+      // Token is automatically stored in HttpOnly cookie by backend
+      const userData = { username, role: userRole, name, opId, operatorKey: name };
       setCurrentUser(userData);
       setIsAuthenticated(true);
       localStorage.setItem('traceline_user', JSON.stringify(userData));
-      document.body.className = `role-${user.role}`;
+      document.body.className = `role-${userRole}`;
       return true;
+    } catch (error) {
+      console.error('Login error:', error);
+      return false;
     }
-    return false;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await authAPI.logout();
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
     setCurrentUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem('traceline_user');
     document.body.className = '';
   };
- 
+
   return (
     <AuthContext.Provider value={{ currentUser, isAuthenticated, loading, login, logout, selectedRole, setSelectedRole }}>
       {children}

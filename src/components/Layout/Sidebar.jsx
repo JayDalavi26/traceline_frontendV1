@@ -9,7 +9,7 @@ const Sidebar = ({ currentPage, setCurrentPage }) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '⬛', roles: ['admin', 'operator'] },
     { id: 'tracking', label: 'Live Tracking', icon: '◎', roles: ['admin', 'operator'], badge: '12', badgeClass: 'warn' },
-    { id: 'scan', label: 'DMC Scanner', icon: '⬡', roles: ['admin', 'operator'] },
+    // DMC Scanner removed from nav bar
     { id: 'ai', label: 'AI Analytics', icon: '✦', roles: ['admin'], badge: '3' },
     { id: 'anomalies', label: 'Anomalies', icon: '⚠', roles: ['admin'], badge: '7' },
     { id: 'predictive', label: 'Predictive', icon: '◈', roles: ['admin'] },
@@ -44,7 +44,7 @@ const Sidebar = ({ currentPage, setCurrentPage }) => {
       <nav className="nav">
         <div className="nav-section">
           <div className="nav-label">Overview</div>
-          {visibleItems.filter(i => ['dashboard', 'tracking', 'scan'].includes(i.id)).map(item => (
+          {visibleItems.filter(i => ['dashboard', 'tracking'].includes(i.id)).map(item => (
             <div key={item.id} className={`nav-item ${currentPage === item.id ? 'active' : ''}`} onClick={() => setCurrentPage(item.id)}>
               <span className="nav-icon">{item.icon}</span> {item.label}
               {item.badge && <span className={`nav-badge ${item.badgeClass || ''}`}>{item.badge}</span>}

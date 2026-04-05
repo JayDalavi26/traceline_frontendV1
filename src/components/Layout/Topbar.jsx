@@ -22,6 +22,7 @@ const Topbar = ({ currentPage, setCurrentPage }) => {
   };
 
   const { title, sub } = pageTitles[currentPage] || pageTitles.dashboard;
+  const isOperator = currentUser?.role === 'operator';
 
   return (
     <div className="topbar">
@@ -39,7 +40,9 @@ const Topbar = ({ currentPage, setCurrentPage }) => {
           </div>
         </div>
         <button className="btn btn-ghost" onClick={logout} style={{ color: 'var(--danger)', borderColor: 'rgba(239,68,68,0.2)' }}>⏻ Logout</button>
-        <button className="btn btn-primary" onClick={() => setCurrentPage('scan')}>⊕ Scan Part</button>
+        {isOperator && (
+          <button className="btn btn-primary" onClick={() => setCurrentPage('scan')}>⊕ Scan Part</button>
+        )}
       </div>
     </div>
   );
