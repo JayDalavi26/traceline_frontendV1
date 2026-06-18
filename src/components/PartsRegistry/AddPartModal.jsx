@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { partsAPI, operatorsAPI } from '../../services/api';
+import { partsAPI, operatorsAPI, assignmentsAPI } from '../../services/api';
 import { useToast } from '../../hooks/useToast';
 
 const AddPartModal = ({ isOpen, onClose, onPartAdded }) => {
   const { showToast } = useToast();
   const [operators, setOperators] = useState([]);
+  const [autoAssign, setAutoAssign] = useState(true);
   const [formData, setFormData] = useState({
     partId: '',
     batch: '',
@@ -47,14 +48,23 @@ const AddPartModal = ({ isOpen, onClose, onPartAdded }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.partId || !formData.batch || !formData.material || !formData.operatorId) {
+    if (!formData.partId || !formData.batch || !formData.material) {
       showToast('Please fill all required fields', '⚠️');
+      return;
+    }
+    if (!autoAssign && !formData.operatorId) {
+      showToast('Please select an operator or enable auto-assign', '⚠️');
       return;
     }
     setLoading(true);
     try {
       await partsAPI.create(formData);
-      showToast(`Part ${formData.partId} registered successfully`, '✅');
+      if (autoAssign) {
+        await assignmentsAPI.autoAssign(formData.partId);
+        showToast(`Part ${formData.partId} registered & auto-assigned`, '✅');
+      } else {
+        showToast(`Part ${formData.partId} registered successfully`, '✅');
+      }
       onPartAdded(); // refresh parent table
       onClose();
       // Reset form
@@ -119,13 +129,30 @@ const AddPartModal = ({ isOpen, onClose, onPartAdded }) => {
             </select>
           </div>
           <div className="form-group">
-            <label className="form-label">Assign Operator</label>
-            <select name="operatorId" className="form-input" value={formData.operatorId} onChange={handleChange} required>
-              <option value="">Select operator</option>
-              {operators.map(op => (
-                <option key={op.id} value={op.opId}>{op.name} ({op.opId})</option>
-              ))}
-            </select>
+            <label className="form-label">Operator Assignment</label>
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '10px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}>
+                <input type="radio" checked={autoAssign} onChange={() => setAutoAssign(true)} />
+                ⚡ Auto-Assign (load-balanced)
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}>
+                <input type="radio" checked={!autoAssign} onChange={() => setAutoAssign(false)} />
+                Manual Select
+              </label>
+            </div>
+            {!autoAssign && (
+              <select name="operatorId" className="form-input" value={formData.operatorId} onChange={handleChange}>
+                <option value="">Select operator</option>
+                {operators.map(op => (
+                  <option key={op.id} value={op.opId}>{op.name} ({op.opId}) — Load: {op.currentLoad || 0}</option>
+                ))}
+              </select>
+            )}
+            {autoAssign && (
+              <div style={{ fontSize: '11px', color: 'var(--text3)', padding: '8px', background: 'var(--bg3)', borderRadius: 'var(--radius)' }}>
+                System will assign to the least-loaded operator specialized in the selected stage.
+              </div>
+            )}
           </div>
           <div className="form-group">
             <label className="form-label">Quality Score (0-100)</label>

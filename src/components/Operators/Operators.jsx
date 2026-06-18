@@ -54,7 +54,7 @@ const Operators = () => {
           <table>
             <thead>
               <tr>
-                <th>ID</th><th>Name</th><th>Level</th><th>Status</th><th>Scans Today</th><th>Accuracy</th><th>Anomalies</th><th>Actions</th>
+                <th>ID</th><th>Name</th><th>Level</th><th>Specializations</th><th>Status</th><th>Load</th><th>Scans Today</th><th>Accuracy</th><th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -63,10 +63,21 @@ const Operators = () => {
                   <td><span className="mono">{op.opId}</span></td>
                   <td>{op.name}</td>
                   <td>{op.level}</td>
+                  <td>
+                    {op.specializations && op.specializations.length > 0 ? (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                        {op.specializations.map(s => (
+                          <span key={s} className="badge badge-accent" style={{ fontSize: '10px', padding: '2px 6px' }}>{s}</span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span style={{ color: 'var(--text3)', fontSize: '11px' }}>All stages</span>
+                    )}
+                  </td>
                   <td>{getStatusBadge(op.status)}</td>
+                  <td><span style={{ fontWeight: 600, color: (op.currentLoad || 0) > 5 ? 'var(--warn)' : 'var(--success)' }}>{op.currentLoad || 0}</span></td>
                   <td>{op.totalScansToday}</td>
                   <td>{op.accuracy}%</td>
-                  <td>{op.anomalyCount}</td>
                   <td>
                     <button className="btn btn-danger" style={{ padding: '4px 10px' }}
                       onClick={() => setDeleteModal({ open: true, operator: op })}>

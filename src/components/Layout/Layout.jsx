@@ -5,6 +5,7 @@ import Dashboard from '../Dashboard/Dashboard';
 import Tracking from '../Tracking/Tracking';
 import Scan from '../Scan/Scan';
 import AIAnalytics from '../AIAnalytics/AIAnalytics';
+import AIInspection from '../AIAnalytics/AIInspection';
 import Anomalies from '../Anomalies/Anomalies';
 import Predictive from '../Predictive/Predictive';
 import Blockchain from '../Blockchain/Blockchain';
@@ -23,6 +24,7 @@ const Layout = () => {
       case 'tracking': return <Tracking />;
       case 'scan': return <Scan />;
       case 'ai': return <AIAnalytics />;
+      case 'inspection': return <AIInspection />;
       case 'anomalies': return <Anomalies />;
       case 'predictive': return <Predictive />;
       case 'blockchain': return <Blockchain />;

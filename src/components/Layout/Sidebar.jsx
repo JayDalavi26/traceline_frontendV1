@@ -11,6 +11,7 @@ const Sidebar = ({ currentPage, setCurrentPage }) => {
     { id: 'tracking', label: 'Live Tracking', icon: '◎', roles: ['admin', 'operator'], badge: '12', badgeClass: 'warn' },
     // DMC Scanner removed from nav bar
     { id: 'ai', label: 'AI Analytics', icon: '✦', roles: ['admin'], badge: '3' },
+    { id: 'inspection', label: 'AI Inspection', icon: '🔍', roles: ['admin', 'operator'] },
     { id: 'anomalies', label: 'Anomalies', icon: '⚠', roles: ['admin'], badge: '7' },
     { id: 'predictive', label: 'Predictive', icon: '◈', roles: ['admin'] },
     { id: 'blockchain', label: 'Ledger', icon: '⛓', roles: ['admin', 'operator'] },
@@ -55,7 +56,7 @@ const Sidebar = ({ currentPage, setCurrentPage }) => {
         {isAdmin && (
           <div className="nav-section">
             <div className="nav-label">Intelligence</div>
-            {visibleItems.filter(i => ['ai', 'anomalies', 'predictive'].includes(i.id)).map(item => (
+            {visibleItems.filter(i => ['ai', 'inspection', 'anomalies', 'predictive'].includes(i.id)).map(item => (
               <div key={item.id} className={`nav-item ${currentPage === item.id ? 'active' : ''}`} onClick={() => setCurrentPage(item.id)}>
                 <span className="nav-icon">{item.icon}</span> {item.label}
                 {item.badge && <span className={`nav-badge ${item.badgeClass || ''}`}>{item.badge}</span>}

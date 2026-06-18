@@ -1,15 +1,30 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { dashboardAPI } from '../../services/api';
 import { useToast } from '../../hooks/useToast';
 
 const Reports = () => {
   const { showToast } = useToast();
+  const [metrics, setMetrics] = useState({ totalParts: 0, trackingAccuracy: 0, avgCycleTime: '—' });
+
+  useEffect(() => {
+    dashboardAPI.getMetrics()
+      .then(res => {
+        const d = res.data || {};
+        setMetrics({
+          totalParts: d.partsInProduction || 0,
+          trackingAccuracy: d.trackingAccuracy || 0,
+          avgCycleTime: d.avgCycleTimeHours ? `${d.avgCycleTimeHours}h` : '—'
+        });
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <>
       <div className="grid-3" style={{ marginBottom: '24px' }}>
-        <div className="metric teal"><div className="metric-label">Monthly Parts Processed</div><div className="metric-value teal">28,441</div><div className="metric-change"><span className="up">↑ 14%</span> vs last month</div></div>
-        <div className="metric green"><div className="metric-label">Quality Rate</div><div className="metric-value green">96.2%</div><div className="metric-change"><span className="up">↑ 3.1%</span> improvement</div></div>
-        <div className="metric blue"><div className="metric-label">Avg Cycle Time</div><div className="metric-value blue">4.8h</div><div className="metric-change"><span className="up">↓ 22min</span> faster</div></div>
+        <div className="metric teal"><div className="metric-label">Total Parts Processed</div><div className="metric-value teal">{metrics.totalParts.toLocaleString()}</div><div className="metric-change">All tracked parts</div></div>
+        <div className="metric green"><div className="metric-label">Quality Rate</div><div className="metric-value green">{metrics.trackingAccuracy}%</div><div className="metric-change">Based on scan data</div></div>
+        <div className="metric blue"><div className="metric-label">Avg Cycle Time</div><div className="metric-value blue">{metrics.avgCycleTime}</div><div className="metric-change">Across all stages</div></div>
       </div>
 
       <div className="grid-2">

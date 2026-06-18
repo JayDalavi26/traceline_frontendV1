@@ -1,14 +1,30 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { partsAPI } from '../../services/api';
 
 const ProcessFlow = () => {
-  const stages = [
-    { name: 'Intake', icon: '📥', count: '342 done', status: 'done' },
-    { name: 'Cutting', icon: '✂️', count: '298 done', status: 'done' },
-    { name: 'Drilling', icon: '🔩', count: '187 active', status: 'active' },
-    { name: 'Heat Treat', icon: '🔥', count: '124 active', status: 'active' },
-    { name: 'Inspection', icon: '🔬', count: '89 active', status: 'active' },
-    { name: 'Assembly', icon: '✅', count: '244 pending', status: 'pending' },
+  const stageConfig = [
+    { name: 'Cutting', icon: '✂️' },
+    { name: 'Drilling', icon: '🔩' },
+    { name: 'Milling', icon: '⚙️' },
+    { name: 'Grinding', icon: '🔥' },
+    { name: 'Assembly', icon: '🔬' },
+    { name: 'QC', icon: '✅' },
   ];
+
+  const [stages, setStages] = useState(stageConfig.map(s => ({ ...s, count: 0 })));
+
+  useEffect(() => {
+    partsAPI.getAll()
+      .then(res => {
+        const parts = Array.isArray(res.data) ? res.data : [];
+        const updated = stageConfig.map(s => ({
+          ...s,
+          count: parts.filter(p => p.stage === s.name).length
+        }));
+        setStages(updated);
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="card section-gap">
@@ -21,10 +37,10 @@ const ProcessFlow = () => {
       <div className="process-flow">
         {stages.map((stage, idx) => (
           <React.Fragment key={stage.name}>
-            <div className={`process-stage ${stage.status}`}>
+            <div className={`process-stage ${stage.count > 0 ? 'active' : 'pending'}`}>
               <div className="stage-icon">{stage.icon}</div>
               <div className="stage-name">{stage.name}</div>
-              <div className="stage-count" style={{ color: stage.status === 'active' ? 'var(--accent)' : stage.status === 'done' ? 'var(--success)' : 'inherit' }}>{stage.count}</div>
+              <div className="stage-count" style={{ color: stage.count > 0 ? 'var(--accent)' : 'inherit' }}>{stage.count} parts</div>
             </div>
             {idx < stages.length - 1 && <div className="stage-arrow">›</div>}
           </React.Fragment>

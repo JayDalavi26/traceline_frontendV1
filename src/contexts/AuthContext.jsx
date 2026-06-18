@@ -24,8 +24,11 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password, role) => {
     try {
       const response = await authAPI.login(username, password, role);
-      const { role: userRole, name, opId } = response.data;
-      // Token is automatically stored in HttpOnly cookie by backend
+      const { role: userRole, name, opId, token } = response.data;
+      // Store token in localStorage for Authorization header
+      if (token) {
+        localStorage.setItem('token', token);
+      }
       const userData = { username, role: userRole, name, opId, operatorKey: name };
       setCurrentUser(userData);
       setIsAuthenticated(true);
@@ -47,6 +50,7 @@ export const AuthProvider = ({ children }) => {
     setCurrentUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem('traceline_user');
+    localStorage.removeItem('token');
     document.body.className = '';
   };
 
